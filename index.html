@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>备考助手</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg: #f6f6f4; --surface: #fff; --surface2: #f0f0ee;
+  --border: #e8e8e4; --text: #1a1a18; --text2: #6b6b68; --text3: #a8a8a4;
+  --accent: #2d6a4f; --accent-light: #e8f2ed;
+  --red: #c0392b; --red-light: #fdecea;
+  --yellow: #d4a017; --yellow-light: #fdf6e3;
+  --radius: 12px; --shadow: 0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04);
+}
+body { font-family:'Inter','Noto Sans SC',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; line-height:1.5; }
+.app { display:flex; flex-direction:column; min-height:100vh; }
+header { padding:0 32px; height:56px; display:flex; align-items:center; justify-content:space-between; background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100; }
+.logo { font-size:15px; font-weight:600; color:var(--accent); letter-spacing:-0.3px; }
+.header-date { font-size:12px; color:var(--text3); }
+.apikey-row { display:flex; align-items:center; gap:8px; }
+.apikey-input { padding:5px 10px; border:1px solid var(--border); border-radius:8px; font-size:12px; font-family:inherit; color:var(--text); background:var(--surface2); outline:none; width:240px; transition:border-color 0.15s; }
+.apikey-input:focus { border-color:var(--accent); }
+.apikey-save { padding:5px 10px; background:var(--accent); color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-family:inherit; }
+.apikey-status { font-size:11px; }
+.main { display:grid; grid-template-columns:280px 1fr 300px; flex:1; height:calc(100vh - 56px); overflow:hidden; }
+.panel { border-right:1px solid var(--border); overflow-y:auto; padding:24px 20px; }
+.panel:last-child { border-right:none; }
+.panel-title { font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--text3); margin-bottom:16px; }
+.subject-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-bottom:10px; cursor:pointer; transition:box-shadow 0.15s,border-color 0.15s; }
+.subject-card:hover { box-shadow:var(--shadow); border-color:#d0d0cc; }
+.subject-card.active { border-color:var(--accent); background:var(--accent-light); }
+.subject-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+.subject-name { font-weight:500; font-size:14px; }
+.days-badge { font-size:11px; padding:2px 7px; border-radius:20px; font-weight:500; flex-shrink:0; }
+.days-badge.urgent { background:var(--red-light); color:var(--red); }
+.days-badge.warn { background:var(--yellow-light); color:var(--yellow); }
+.days-badge.ok { background:var(--accent-light); color:var(--accent); }
+.subject-meta { font-size:11px; color:var(--text2); margin-bottom:8px; }
+.progress-bar { height:4px; background:var(--border); border-radius:4px; overflow:hidden; margin-bottom:4px; }
+.progress-fill { height:100%; border-radius:4px; transition:width 0.8s ease; }
+.progress-label { display:flex; justify-content:space-between; font-size:10px; color:var(--text3); }
+.add-subject-btn { width:100%; padding:10px; border:1.5px dashed var(--border); border-radius:var(--radius); background:none; color:var(--text3); font-size:13px; cursor:pointer; transition:all 0.15s; font-family:inherit; }
+.add-subject-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+.center-panel { padding:0; display:flex; flex-direction:column; border-right:1px solid var(--border); }
+.tab-bar { display:flex; border-bottom:1px solid var(--border); padding:0 24px; background:var(--surface); flex-shrink:0; }
+.tab { padding:14px 16px 12px; font-size:13px; font-weight:500; color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.15s; user-select:none; }
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab-content { flex:1; overflow-y:auto; padding:24px; }
+.today-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.today-title { font-size:20px; font-weight:600; letter-spacing:-0.4px; }
+.ai-btn { display:flex; align-items:center; gap:6px; padding:7px 14px; background:var(--accent); color:white; border:none; border-radius:8px; font-size:12px; font-weight:500; cursor:pointer; transition:background 0.15s; font-family:inherit; }
+.ai-btn:hover { background:#235a40; }
+.ai-btn:disabled { opacity:0.6; cursor:not-allowed; }
+.spinner { width:12px; height:12px; border:2px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; display:none; }
+.ai-btn.loading .spinner { display:block; }
+.ai-btn.loading .btn-text { display:none; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.task-group { margin-bottom:20px; }
+.task-group-label { font-size:11px; font-weight:600; letter-spacing:0.8px; text-transform:uppercase; color:var(--text3); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.task-group-label::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.task-group-label.urgent { color:var(--red); }
+.task-group-label.normal { color:var(--accent); }
+.task-item { display:flex; align-items:flex-start; gap:10px; padding:11px 14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-bottom:6px; transition:all 0.15s; }
+.task-item:hover { border-color:#d0d0cc; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+.task-item.done { opacity:0.45; }
+.task-item.done .task-text { text-decoration:line-through; }
+.task-check { width:18px; height:18px; border:1.5px solid var(--border); border-radius:5px; cursor:pointer; flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; background:white; }
+.task-check:hover { border-color:var(--accent); }
+.task-item.done .task-check { background:var(--accent); border-color:var(--accent); }
+.task-check::after { content:''; display:none; width:10px; height:6px; border-left:2px solid white; border-bottom:2px solid white; transform:rotate(-45deg) translateY(-1px); }
+.task-item.done .task-check::after { display:block; }
+.task-body { flex:1; }
+.task-text { font-size:13px; color:var(--text); line-height:1.4; }
+.task-sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.task-tag { font-size:10px; padding:2px 7px; border-radius:20px; background:var(--accent-light); color:var(--accent); flex-shrink:0; font-weight:500; }
+.empty-state { text-align:center; padding:48px 24px; color:var(--text3); }
+.empty-icon { font-size:36px; margin-bottom:12px; }
+.empty-title { font-size:15px; font-weight:500; color:var(--text2); margin-bottom:6px; }
+.empty-desc { font-size:13px; line-height:1.6; }
+.ai-response { background:var(--accent-light); border:1px solid rgba(45,106,79,0.2); border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:13px; line-height:1.7; color:var(--accent); display:none; }
+.knowledge-subject-select { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+.ks-btn { padding:5px 12px; border-radius:20px; border:1px solid var(--border); background:var(--surface); font-size:12px; cursor:pointer; transition:all 0.15s; font-family:inherit; color:var(--text2); }
+.ks-btn:hover { border-color:var(--accent); color:var(--accent); }
+.ks-btn.active { background:var(--accent); border-color:var(--accent); color:white; }
+.knowledge-item { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-bottom:6px; transition:all 0.15s; }
+.knowledge-item:hover { border-color:#d0d0cc; }
+.k-status { width:20px; height:20px; border-radius:50%; border:1.5px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0; cursor:pointer; transition:all 0.15s; }
+.k-status.know { background:var(--accent); border-color:var(--accent); color:white; }
+.k-status.unsure { background:var(--yellow-light); border-color:var(--yellow); color:var(--yellow); }
+.k-status.dontknow { background:var(--red-light); border-color:var(--red); color:var(--red); }
+.k-text { flex:1; font-size:13px; }
+.k-cycle { display:flex; gap:4px; }
+.k-cycle-btn { width:22px; height:22px; border-radius:50%; border:1px solid var(--border); background:var(--surface2); font-size:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.12s; }
+.k-cycle-btn:hover { border-color:var(--accent); }
+.add-knowledge-row { display:flex; gap:6px; margin-top:10px; }
+.k-input { flex:1; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; font-family:inherit; background:var(--surface); color:var(--text); outline:none; transition:border-color 0.15s; }
+.k-input:focus { border-color:var(--accent); }
+.k-add-btn { padding:8px 14px; background:var(--accent); color:white; border:none; border-radius:8px; font-size:13px; cursor:pointer; font-family:inherit; }
+.right-panel { background:var(--surface); }
+.exam-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+.exam-item:last-child { border-bottom:none; }
+.exam-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.exam-info { flex:1; }
+.exam-name { font-size:13px; font-weight:500; }
+.exam-date { font-size:11px; color:var(--text3); }
+.exam-days { font-size:12px; font-weight:600; flex-shrink:0; }
+.stats-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px; }
+.stat-card { background:var(--surface2); border-radius:10px; padding:12px; }
+.stat-num { font-size:22px; font-weight:600; letter-spacing:-0.5px; color:var(--text); line-height:1; margin-bottom:3px; }
+.stat-label { font-size:11px; color:var(--text3); }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.3); backdrop-filter:blur(2px); z-index:200; align-items:center; justify-content:center; }
+.modal-overlay.show { display:flex; }
+.modal { background:var(--surface); border-radius:16px; padding:28px; width:380px; box-shadow:0 8px 40px rgba(0,0,0,0.15); }
+.modal-title { font-size:17px; font-weight:600; margin-bottom:20px; }
+.form-group { margin-bottom:14px; }
+.form-label { font-size:12px; font-weight:500; color:var(--text2); margin-bottom:5px; display:block; }
+.form-input { width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; font-family:inherit; color:var(--text); background:var(--surface); outline:none; transition:border-color 0.15s; }
+.form-input:focus { border-color:var(--accent); }
+.mastery-select { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.mastery-opt { padding:8px; border:1.5px solid var(--border); border-radius:8px; text-align:center; cursor:pointer; font-size:12px; transition:all 0.15s; user-select:none; }
+.mastery-opt:hover { border-color:var(--accent); }
+.mastery-opt.selected { border-color:var(--accent); background:var(--accent-light); color:var(--accent); font-weight:500; }
+.modal-actions { display:flex; gap:8px; margin-top:20px; }
+.modal-cancel { flex:1; padding:10px; border:1px solid var(--border); border-radius:8px; background:none; font-size:14px; cursor:pointer; font-family:inherit; color:var(--text2); }
+.modal-submit { flex:2; padding:10px; border:none; border-radius:8px; background:var(--accent); color:white; font-size:14px; font-weight:500; cursor:pointer; font-family:inherit; }
+.modal-submit:hover { background:#235a40; }
+.api-notice { background:var(--accent-light); border:1px solid rgba(45,106,79,0.2); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--accent); margin-bottom:16px; }
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">备考助手</div>
+    <div class="header-date" id="headerDate"></div>
+    <div class="apikey-row">
+      <input class="apikey-input" id="apikeyInput" type="password" placeholder="输入你的 Anthropic API Key">
+      <button class="apikey-save" onclick="saveApiKey()">保存</button>
+      <span class="apikey-status" id="apikeyStatus"></span>
+    </div>
+  </header>
+  <div class="main">
+    <div class="panel">
+      <div class="panel-title">我的科目</div>
+      <div id="subjectList"></div>
+      <button class="add-subject-btn" onclick="openAddModal()">＋ 添加科目</button>
+    </div>
+    <div class="center-panel">
+      <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('today',this)">今日计划</div>
+        <div class="tab" onclick="switchTab('knowledge',this)">知识点</div>
+      </div>
+      <div class="tab-content" id="tab-today">
+        <div class="today-header">
+          <div class="today-title">今天要做什么</div>
+          <button class="ai-btn" id="aiBtn" onclick="generatePlan()">
+            <div class="spinner"></div><span class="btn-text">✦ AI 生成计划</span>
+          </button>
+        </div>
+        <div class="api-notice">💡 点击「AI 生成计划」，根据科目紧迫度和薄弱点，AI 会帮你安排今天该复习什么。</div>
+        <div class="ai-response" id="aiResponse"></div>
+        <div id="taskList"></div>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">还没有今日计划</div>
+          <div class="empty-desc">先添加科目，然后点击「AI 生成计划」</div>
+        </div>
+      </div>
+      <div class="tab-content" id="tab-knowledge" style="display:none">
+        <div class="today-header">
+          <div class="today-title">知识点追踪</div>
+          <button class="ai-btn" id="aiKnowledgeBtn" onclick="analyzeWeakPoints()">
+            <div class="spinner"></div><span class="btn-text">✦ 分析薄弱点</span>
+          </button>
+        </div>
+        <div class="knowledge-subject-select" id="kSubjectSelect"></div>
+        <div class="ai-response" id="aiKnowledgeResponse"></div>
+        <div id="knowledgeList"></div>
+        <div class="add-knowledge-row">
+          <input class="k-input" id="kInput" placeholder="添加知识点，如「特征值分解」">
+          <button class="k-add-btn" onclick="addKnowledge()">添加</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel right-panel">
+      <div class="panel-title">总览</div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="statSubjects">0</div><div class="stat-label">门科目</div></div>
+        <div class="stat-card"><div class="stat-num" id="statDone">0</div><div class="stat-label">今日已完成</div></div>
+        <div class="stat-card"><div class="stat-num" id="statKnow">0%</div><div class="stat-label">平均掌握</div></div>
+        <div class="stat-card"><div class="stat-num" id="statUrgent">0</div><div class="stat-label">紧急科目</div></div>
+      </div>
+      <div style="margin-bottom:24px">
+        <div class="panel-title">考试日程</div>
+        <div id="examTimeline"></div>
+      </div>
+      <div>
+        <div class="panel-title">掌握情况</div>
+        <div id="masteryOverview"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title">添加科目</div>
+    <div class="form-group">
+      <label class="form-label">科目名称</label>
+      <input class="form-input" id="subjectName" placeholder="如：线性代数">
+    </div>
+    <div class="form-group">
+      <label class="form-label">考试日期</label>
+      <input class="form-input" id="examDate" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">每天可投入几小时</label>
+      <input class="form-input" id="hoursPerDay" type="number" min="0.5" max="12" step="0.5" placeholder="2">
+    </div>
+    <div class="form-group">
+      <label class="form-label">目前掌握程度</label>
+      <div class="mastery-select">
+        <div class="mastery-opt" onclick="selectMastery(0.2,this)">😰 很差<br><small>不太懂</small></div>
+        <div class="mastery-opt" onclick="selectMastery(0.5,this)">😐 一般<br><small>大概懂</small></div>
+        <div class="mastery-opt selected" onclick="selectMastery(0.75,this)">🙂 不错<br><small>基本会</small></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">取消</button>
+      <button class="modal-submit" onclick="addSubject()">添加</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS=['#2d6a4f','#e07a30','#7b5ea7','#c0392b','#2980b9','#16a085'];
+let subjects=JSON.parse(localStorage.getItem('subjects')||'[]');
+let tasks=JSON.parse(localStorage.getItem('tasks')||'[]');
+let knowledgeItems=JSON.parse(localStorage.getItem('knowledge')||'[]');
+let selectedMastery=0.75;
+let activeSubjectForKnowledge=null;
+let activeTab='today';
+
+function init(){
+  const d=new Date();
+  document.getElementById('headerDate').textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 · 星期${'日一二三四五六'[d.getDay()]}`;
+  const def=new Date();def.setDate(def.getDate()+30);
+  document.getElementById('examDate').value=def.toISOString().split('T')[0];
+  const saved=getApiKey();
+  if(saved){document.getElementById('apikeyInput').value=saved;document.getElementById('apikeyStatus').textContent='✓ Key 已加载';document.getElementById('apikeyStatus').style.color='var(--accent)';}
+  render();
+}
+
+function render(){renderSubjects();renderTasks();renderKnowledge();renderOverview();updateStats();}
+
+function renderSubjects(){
+  const el=document.getElementById('subjectList');
+  el.innerHTML=subjects.map((s,i)=>{
+    const days=daysUntil(s.examDate);
+    const urg=days<=7?'urgent':days<=14?'warn':'ok';
+    const lbl=days<=0?'已过期':days+'天后';
+    return`<div class="subject-card ${activeSubjectForKnowledge===i?'active':''}" onclick="selectSubject(${i})">
+      <div class="subject-header"><div class="subject-name">${s.name}</div><div class="days-badge ${urg}">${lbl}</div></div>
+      <div class="subject-meta">每天 ${s.hours}h · ${formatDate(s.examDate)}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${s.mastery*100}%;background:${COLORS[i%COLORS.length]}"></div></div>
+      <div class="progress-label"><span>掌握度</span><span>${Math.round(s.mastery*100)}%</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderTasks(){
+  const list=document.getElementById('taskList');
+  const empty=document.getElementById('emptyState');
+  if(!tasks.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  const urgent=tasks.filter(t=>t.priority==='urgent');
+  const normal=tasks.filter(t=>t.priority!=='urgent');
+  let html='';
+  if(urgent.length) html+=`<div class="task-group"><div class="task-group-label urgent">优先处理</div>${urgent.map(t=>taskHTML(t,tasks.indexOf(t))).join('')}</div>`;
+  if(normal.length) html+=`<div class="task-group"><div class="task-group-label normal">今日计划</div>${normal.map(t=>taskHTML(t,tasks.indexOf(t))).join('')}</div>`;
+  list.innerHTML=html;
+}
+
+function taskHTML(t,idx){
+  return`<div class="task-item ${t.done?'done':''}" id="task-${idx}">
+    <div class="task-check" onclick="toggleTask(${idx})"></div>
+    <div class="task-body"><div class="task-text">${t.text}</div>${t.sub?`<div class="task-sub">${t.sub}</div>`:''}</div>
+    ${t.subject?`<div class="task-tag">${t.subject}</div>`:''}
+  </div>`;
+}
+
+function renderKnowledge(){
+  const ks=document.getElementById('kSubjectSelect');
+  ks.innerHTML=subjects.map((s,i)=>`<button class="ks-btn ${activeSubjectForKnowledge===i?'active':''}" onclick="setKnowledgeSubject(${i})">${s.name}</button>`).join('')||(subjects.length?'':'<span style="font-size:12px;color:var(--text3)">请先添加科目</span>');
+  const items=activeSubjectForKnowledge!==null?knowledgeItems.filter(k=>k.subjectIdx===activeSubjectForKnowledge):knowledgeItems;
+  const list=document.getElementById('knowledgeList');
+  if(!items.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-title">还没有知识点</div><div class="empty-desc">在下方输入知识点开始追踪</div></div>';return;}
+  list.innerHTML=items.map(k=>{
+    const gi=knowledgeItems.indexOf(k);
+    const sm={know:{cls:'know',icon:'✓'},unsure:{cls:'unsure',icon:'?'},dontknow:{cls:'dontknow',icon:'✗'}};
+    const s=sm[k.status]||sm.unsure;
+    return`<div class="knowledge-item">
+      <div class="k-status ${s.cls}" onclick="cycleStatus(${gi})">${s.icon}</div>
+      <div class="k-text">${k.text}</div>
+      <div class="k-cycle">
+        <div class="k-cycle-btn" onclick="setStatus(${gi},'know')" title="会了">✓</div>
+        <div class="k-cycle-btn" onclick="setStatus(${gi},'unsure')" title="不确定">?</div>
+        <div class="k-cycle-btn" onclick="setStatus(${gi},'dontknow')" title="不会">✗</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderOverview(){
+  const tl=document.getElementById('examTimeline');
+  if(!subjects.length){tl.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px 0">暂无科目</div>';}
+  else{
+    const sorted=[...subjects].sort((a,b)=>new Date(a.examDate)-new Date(b.examDate));
+    tl.innerHTML=sorted.map(s=>{
+      const days=daysUntil(s.examDate);
+      const urg=days<=7?'var(--red)':days<=14?'var(--yellow)':'var(--accent)';
+      const i=subjects.indexOf(s);
+      return`<div class="exam-item">
+        <div class="exam-dot" style="background:${COLORS[i%COLORS.length]}"></div>
+        <div class="exam-info"><div class="exam-name">${s.name}</div><div class="exam-date">${formatDate(s.examDate)}</div></div>
+        <div class="exam-days" style="color:${urg}">${days<=0?'已过':days+'天'}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('masteryOverview').innerHTML=subjects.map((s,i)=>`
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>${s.name}</span><span style="color:var(--text3)">${Math.round(s.mastery*100)}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${s.mastery*100}%;background:${COLORS[i%COLORS.length]}"></div></div>
+    </div>`).join('')||'<div style="font-size:12px;color:var(--text3);padding:4px 0">暂无数据</div>';
+}
+
+function updateStats(){
+  document.getElementById('statSubjects').textContent=subjects.length;
+  document.getElementById('statDone').textContent=tasks.filter(t=>t.done).length;
+  const avg=subjects.length?Math.round(subjects.reduce((s,x)=>s+x.mastery,0)/subjects.length*100):0;
+  document.getElementById('statKnow').textContent=avg+'%';
+  document.getElementById('statUrgent').textContent=subjects.filter(s=>daysUntil(s.examDate)<=7).length;
+}
+
+function selectSubject(i){activeSubjectForKnowledge=i;renderSubjects();if(activeTab==='knowledge')renderKnowledge();}
+function setKnowledgeSubject(i){activeSubjectForKnowledge=i;renderKnowledge();renderSubjects();}
+function switchTab(tab,el){
+  activeTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-today').style.display=tab==='today'?'block':'none';
+  document.getElementById('tab-knowledge').style.display=tab==='knowledge'?'block':'none';
+}
+function toggleTask(idx){tasks[idx].done=!tasks[idx].done;save();renderTasks();updateStats();}
+function cycleStatus(idx){const c=['dontknow','unsure','know'];const cur=c.indexOf(knowledgeItems[idx].status);knowledgeItems[idx].status=c[(cur+1)%c.length];save();renderKnowledge();updateMastery();}
+function setStatus(idx,status){knowledgeItems[idx].status=status;save();renderKnowledge();updateMastery();}
+function updateMastery(){
+  subjects.forEach((s,i)=>{const items=knowledgeItems.filter(k=>k.subjectIdx===i);if(!items.length)return;s.mastery=items.filter(k=>k.status==='know').length/items.length;});
+  save();renderSubjects();renderOverview();updateStats();
+}
+function addKnowledge(){
+  const input=document.getElementById('kInput');const text=input.value.trim();if(!text)return;
+  knowledgeItems.push({text,status:'unsure',subjectIdx:activeSubjectForKnowledge});
+  input.value='';save();renderKnowledge();
+}
+document.getElementById('kInput').addEventListener('keydown',e=>{if(e.key==='Enter')addKnowledge();});
+function openAddModal(){document.getElementById('modal').classList.add('show');document.getElementById('subjectName').focus();}
+function closeModal(){document.getElementById('modal').classList.remove('show');}
+function selectMastery(val,el){selectedMastery=val;document.querySelectorAll('.mastery-opt').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');}
+function addSubject(){
+  const name=document.getElementById('subjectName').value.trim();
+  const date=document.getElementById('examDate').value;
+  const hours=parseFloat(document.getElementById('hoursPerDay').value)||2;
+  if(!name||!date){alert('请填写科目名称和考试日期');return;}
+  subjects.push({name,examDate:date,hours,mastery:selectedMastery});
+  save();closeModal();document.getElementById('subjectName').value='';render();
+}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
+
+function saveApiKey(){
+  const key=document.getElementById('apikeyInput').value.trim();
+  if(!key){alert('请输入 API Key');return;}
+  localStorage.setItem('anthropic_key',key);
+  document.getElementById('apikeyInput').value='';
+  document.getElementById('apikeyStatus').textContent='✓ 已保存';
+  document.getElementById('apikeyStatus').style.color='var(--accent)';
+  setTimeout(()=>document.getElementById('apikeyStatus').textContent='',2000);
+}
+
+function getApiKey(){
+  return localStorage.getItem('anthropic_key')||'';
+}
+
+async function callClaude(prompt,maxTokens=1000){
+  const key=getApiKey();
+  if(!key) throw new Error('no key');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
+  });
+  const data=await res.json();
+  if(data.error) throw new Error(data.error.message);
+  return data.content?.map(c=>c.text||'').join('')||'';
+}
+
+async function generatePlan(){
+  if(!subjects.length){alert('请先添加科目');return;}
+  const btn=document.getElementById('aiBtn');btn.classList.add('loading');btn.disabled=true;
+  const info=subjects.map((s,i)=>{
+    const days=daysUntil(s.examDate);
+    const weak=knowledgeItems.filter(k=>k.subjectIdx===i&&k.status==='dontknow').map(k=>k.text);
+    return`- ${s.name}：${days}天后考试，每天${s.hours}h，掌握${Math.round(s.mastery*100)}%${weak.length?`，薄弱：${weak.join('、')}`:''}`;
+  }).join('\n');
+  const prompt=`我是备考大学生，科目情况：\n${info}\n\n请制定今天的复习计划，严格按JSON返回，不要多余文字：\n{"tasks":[{"text":"任务","sub":"说明","subject":"科目名","priority":"urgent或normal","done":false}],"summary":"一句话重点"}`;
+  try{
+    const text=await callClaude(prompt);
+    const parsed=JSON.parse(text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+    tasks=parsed.tasks||[];save();
+    const el=document.getElementById('aiResponse');el.style.display='block';el.textContent='✦ '+parsed.summary;
+    renderTasks();updateStats();
+  }catch(e){
+    tasks=subjects.flatMap((s,i)=>[{text:`复习${s.name}`,sub:`${s.hours}小时，重点攻克薄弱知识点`,subject:s.name,priority:daysUntil(s.examDate)<=7?'urgent':'normal',done:false}]);
+    save();const el=document.getElementById('aiResponse');el.style.display='block';
+    el.textContent='✦（演示模式）请配置 Anthropic API Key 后刷新，即可获取智能计划。';
+    renderTasks();updateStats();
+  }
+  btn.classList.remove('loading');btn.disabled=false;
+}
+
+async function analyzeWeakPoints(){
+  if(!subjects.length){alert('请先添加科目');return;}
+  const btn=document.getElementById('aiKnowledgeBtn');btn.classList.add('loading');btn.disabled=true;
+  const idx=activeSubjectForKnowledge;
+  const items=idx!==null?knowledgeItems.filter(k=>k.subjectIdx===idx):knowledgeItems;
+  const weak=items.filter(k=>k.status==='dontknow').map(k=>k.text);
+  const unsure=items.filter(k=>k.status==='unsure').map(k=>k.text);
+  const name=idx!==null?subjects[idx]?.name:'所有科目';
+  const prompt=`我在复习${name}。不会的：${weak.join('、')||'无'}。不确定的：${unsure.join('、')||'无'}。\n请给3条具体学习建议，每条50字内，直接列出。`;
+  try{
+    const text=await callClaude(prompt,400);
+    const el=document.getElementById('aiKnowledgeResponse');el.style.display='block';el.textContent=text;
+  }catch(e){
+    const el=document.getElementById('aiKnowledgeResponse');el.style.display='block';
+    el.textContent='（演示模式）1. 先理解不会的概念再做题 2. 用思维导图整理不确定的知识点 3. 找相关例题反复练习';
+  }
+  btn.classList.remove('loading');btn.disabled=false;
+}
+
+function daysUntil(d){const now=new Date();now.setHours(0,0,0,0);return Math.ceil((new Date(d)-now)/86400000);}
+function formatDate(d){const x=new Date(d);return`${x.getMonth()+1}月${x.getDate()}日`;}
+function save(){localStorage.setItem('subjects',JSON.stringify(subjects));localStorage.setItem('tasks',JSON.stringify(tasks));localStorage.setItem('knowledge',JSON.stringify(knowledgeItems));}
+
+if(!subjects.length){
+  subjects=[
+    {name:'线性代数',examDate:new Date(Date.now()+6*86400000).toISOString().split('T')[0],hours:2,mastery:0.35},
+    {name:'概率论',examDate:new Date(Date.now()+13*86400000).toISOString().split('T')[0],hours:1.5,mastery:0.55},
+    {name:'英语四级',examDate:new Date(Date.now()+21*86400000).toISOString().split('T')[0],hours:1,mastery:0.7},
+  ];
+  knowledgeItems=[
+    {text:'特征值与特征向量',status:'dontknow',subjectIdx:0},
+    {text:'矩阵的秩',status:'unsure',subjectIdx:0},
+    {text:'线性相关性',status:'know',subjectIdx:0},
+    {text:'贝叶斯公式',status:'unsure',subjectIdx:1},
+    {text:'正态分布',status:'know',subjectIdx:1},
+  ];
+  save();
+}
+// Load saved key indicator
+const savedKey=localStorage.getItem('anthropic_key');
+if(savedKey){
+  document.getElementById('apikeyStatus').textContent='✓ Key 已配置';
+  document.getElementById('apikeyStatus').style.color='var(--accent)';
+}
+init();
+</script>
+</body>
+</html>
